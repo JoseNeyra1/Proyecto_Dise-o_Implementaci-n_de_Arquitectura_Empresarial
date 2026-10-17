@@ -134,3 +134,17 @@ export interface TelemetryEventRecord extends SubmitAnswerPayload {
   id: string
   timestamp: string
 }
+
+export type GameOutcome = 'VICTORIA' | 'DERROTA'
+
+export interface GameResult {
+  outcome: GameOutcome
+  finalBossHp: number
+  finalClassHp: number
+  durationMs: number
+  sessionStartedAt: number
+  accuracyPercent: number
+  avgResponseSec: number
+  topStudents: Array<{ name: string; correct: number; role: string; initials: string }>
+  missedQuestions: MissedQuestionStat[]
+}

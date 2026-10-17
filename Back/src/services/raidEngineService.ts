@@ -1,5 +1,8 @@
 import { databaseRepository } from '../repositories/databaseRepository.js'
 import type {
+  GameOutcome,
+  GameResult,
+  MissedQuestionStat,
   PlayerRole,
   Question,
   RaidState,
@@ -10,6 +13,8 @@ import type {
 export class RaidEngineService {
   private state: RaidState
   private telemetryHistory: TelemetryEventRecord[] = []
+  private sessionStartedAt: number = Date.now()
+  private lastGameResult: GameResult | null = null
 
   constructor() {
     this.state = databaseRepository.getInitialRaidState()
@@ -28,8 +33,113 @@ export class RaidEngineService {
     return this.telemetryHistory
   }
 
+  public getLastGameResult(): GameResult | null {
+    return this.lastGameResult
+  }
+
   private flushSnapshot() {
     databaseRepository.persistSnapshot(this.state, this.telemetryHistory)
+  }
+
+  // ─── Calcula las preguntas con mayor tasa de error desde la telemetría en memoria ───
+  private computeMissedQuestions(): MissedQuestionStat[] {
+    const questions = databaseRepository.getQuestions()
+    const questionMap = new Map<string, { title: string; subtitle: string; total: number; errors: number }>()
+
+    for (const event of this.telemetryHistory) {
+      const question = questions.find((q) => q.id === event.questionId)
+      if (!question) continue
+
+      const entry = questionMap.get(event.questionId) ?? {
+        title: question.topic,
+        subtitle: question.prompt.slice(0, 50),
+        total: 0,
+        errors: 0,
+      }
+      entry.total++
+      if (!event.isCorrect) entry.errors++
+      questionMap.set(event.questionId, entry)
+    }
+
+    return [...questionMap.entries()]
+      .map(([id, data], i) => ({
+        id,
+        rank: String(i + 1).padStart(2, '0'),
+        title: data.title,
+        subtitle: data.subtitle,
+        errorRate: data.total > 0 ? Math.round((data.errors / data.total) * 100) : 0,
+      }))
+      .filter((mq) => mq.errorRate > 0)
+      .sort((a, b) => b.errorRate - a.errorRate)
+      .slice(0, 5)
+  }
+
+  // ─── Genera alertas de apoyo automáticas para alumnos con errores consecutivos ───
+  private computeSupportAlerts(
+    students: RaidState['students'],
+    existingAlerts: RaidState['alerts']
+  ): RaidState['alerts'] {
+    const alerts = [...existingAlerts]
+
+    for (const stu of students) {
+      if (stu.consecutiveErrors >= 2 && stu.statusClass === 'warning') {
+        const existingIdx = alerts.findIndex(
+          (a) => a.studentId === stu.id && a.type === 'support'
+        )
+        const supportAlert = {
+          id: `al-support-${stu.id}`,
+          studentId: stu.id,
+          studentName: stu.name,
+          initials: stu.initials,
+          type: 'support' as const,
+          tag: 'Requiere apoyo',
+          description: `${stu.consecutiveErrors} errores consecutivos · Tiempo prom: ${stu.avgTimeSec.toFixed(1)} s`,
+          hintSent: existingIdx >= 0 ? (alerts[existingIdx].hintSent ?? false) : false,
+        }
+        if (existingIdx >= 0) {
+          alerts[existingIdx] = supportAlert
+        } else {
+          alerts.push(supportAlert)
+        }
+      } else if (stu.consecutiveErrors === 0) {
+        // Limpiar alerta de apoyo si el alumno ya se recuperó
+        const idx = alerts.findIndex((a) => a.studentId === stu.id && a.type === 'support')
+        if (idx >= 0) alerts.splice(idx, 1)
+      }
+    }
+
+    return alerts
+  }
+
+  // ─── Lógica de fin de juego ───
+  private checkGameOver(state: RaidState): RaidState {
+    const alreadyOver = this.lastGameResult !== null
+    if (alreadyOver) return state
+    if (state.bossHp <= 0) return this.endGame('VICTORIA', state)
+    if (state.classHp <= 0) return this.endGame('DERROTA', state)
+    return state
+  }
+
+  private endGame(outcome: GameOutcome, state: RaidState): RaidState {
+    this.lastGameResult = {
+      outcome,
+      finalBossHp: state.bossHp,
+      finalClassHp: state.classHp,
+      durationMs: Date.now() - this.sessionStartedAt,
+      sessionStartedAt: this.sessionStartedAt,
+      accuracyPercent: state.accuracyPercent,
+      avgResponseSec: state.avgResponseSec,
+      topStudents: [...state.students]
+        .sort((a, b) => b.correct - a.correct)
+        .slice(0, 3)
+        .map((s) => ({ name: s.name, correct: s.correct, role: s.role, initials: s.initials })),
+      missedQuestions: state.missedQuestions,
+    }
+    // Persistir resultado en PG si está disponible (no bloqueante)
+    void databaseRepository.finalizeSession(`ses-${state.roomPin}`, outcome, state)
+    console.log(`[RaidEngine] 🏁 Partida finalizada: ${outcome}`)
+    // Congelar juego
+    return { ...state, isPaused: true }
   }
 
   public joinRaid(studentName: string, role: PlayerRole, pin: string): { ok: boolean; state: RaidState } {
@@ -81,6 +191,11 @@ export class RaidEngineService {
       connectedCount: existingIdx >= 0 ? this.state.connectedCount : this.state.connectedCount + 1,
       students: updatedStudents,
       lastUpdated: Date.now(),
+    }
+
+    const joinedStudent = existingIdx >= 0 ? updatedStudents[existingIdx] : updatedStudents[0]
+    if (joinedStudent) {
+      void databaseRepository.upsertParticipant(`ses-${this.state.roomPin}`, joinedStudent)
     }
 
     this.flushSnapshot()
@@ -233,6 +348,15 @@ export class RaidEngineService {
     const totalAttempts = Math.max(1, students.reduce((acc, s) => acc + s.total, 0))
     const accuracyPercent = Math.round((totalCorrect / totalAttempts) * 100)
 
+    // Calcular avgResponseSec ponderado sobre todos los alumnos
+    const weightedSum = students.reduce((acc, s) => acc + s.avgTimeSec * s.total, 0)
+    const avgResponseSec = totalAttempts > 0
+      ? Number((weightedSum / totalAttempts).toFixed(1))
+      : prev.avgResponseSec
+
+    // Alertas combinadas: críticas (adivinación) + apoyo (errores consecutivos)
+    const combinedAlerts = this.computeSupportAlerts(students, alerts)
+
     this.state = {
       ...prev,
       bossHp,
@@ -242,8 +366,10 @@ export class RaidEngineService {
       feed: feed.slice(0, 6),
       floatingTexts,
       students,
-      alerts: alerts.slice(0, 4),
+      alerts: combinedAlerts.slice(0, 6),
       accuracyPercent,
+      avgResponseSec,
+      missedQuestions: this.computeMissedQuestions(),
       lastUpdated: Date.now(),
     }
 
@@ -254,9 +380,25 @@ export class RaidEngineService {
       timestamp: new Date().toISOString(),
     }
     this.telemetryHistory.push(telemetryRecord)
+    const sessionId = `ses-${this.state.roomPin}`
     void databaseRepository.recordTelemetryEvent(telemetryRecord, this.state)
+    void databaseRepository.syncSessionHp(sessionId, this.state)
+
+    const answeredStudent = students.find(
+      (s) => s.id === payload.studentId || s.name === payload.studentName
+    )
+    if (answeredStudent) {
+      void databaseRepository.upsertParticipant(sessionId, answeredStudent)
+    }
+
+    for (const alert of combinedAlerts) {
+      void databaseRepository.upsertPedagogicalAlert(sessionId, alert)
+    }
+
     this.flushSnapshot()
 
+    // Verificar fin de juego (no bloqueante)
+    this.state = this.checkGameOver(this.state)
     return this.state
   }
 
@@ -340,6 +482,7 @@ export class RaidEngineService {
     }
 
     this.flushSnapshot()
+    this.state = this.checkGameOver(this.state)
     return this.state
   }
 
@@ -350,6 +493,7 @@ export class RaidEngineService {
       isPaused: nextPaused,
       lastUpdated: Date.now(),
     }
+    void databaseRepository.syncSessionHp(`ses-${this.state.roomPin}`, this.state)
     this.flushSnapshot()
     return this.state
   }
@@ -366,6 +510,7 @@ export class RaidEngineService {
       bossHp: nextBossHp,
       lastUpdated: Date.now(),
     }
+    void databaseRepository.syncSessionHp(`ses-${this.state.roomPin}`, this.state)
     this.flushSnapshot()
     return this.state
   }
@@ -448,12 +593,19 @@ export class RaidEngineService {
       feed: feed.slice(0, 6),
       lastUpdated: Date.now(),
     }
+
+    void databaseRepository.syncSessionHp(`ses-${this.state.roomPin}`, this.state)
+    // Verificar fin de juego tras ataque del jefe
+    this.state = this.checkGameOver(this.state)
     return this.state
   }
 
   public resetSession(): RaidState {
     this.state = databaseRepository.getInitialRaidState()
     this.telemetryHistory = []
+    this.lastGameResult = null
+    this.sessionStartedAt = Date.now()
+    void databaseRepository.createOrUpdateSession(this.state)
     this.flushSnapshot()
     return this.state
   }

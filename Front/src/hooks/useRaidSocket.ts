@@ -1,17 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { raidSyncService } from '../services/raidSyncService'
-import type { RaidState, PlayerRole, SubmitAnswerPayload } from '../types/raid.types'
+import type { RaidState, PlayerRole, SubmitAnswerPayload, GameResult } from '../types/raid.types'
 
 export function useRaidSocket() {
   const [raidState, setRaidState] = useState<RaidState>(() => raidSyncService.getState())
   const [connectionMode, setConnectionMode] = useState<'socket' | 'local-sync'>(() =>
     raidSyncService.getConnectionMode()
   )
+  const [lastGameResult, setLastGameResult] = useState<GameResult | null>(() =>
+    raidSyncService.getLastGameResult()
+  )
 
   useEffect(() => {
     const unsubscribe = raidSyncService.subscribe((nextState) => {
       setRaidState({ ...nextState })
       setConnectionMode(raidSyncService.getConnectionMode())
+      setLastGameResult(raidSyncService.getLastGameResult())
     })
     return unsubscribe
   }, [])
@@ -51,6 +55,7 @@ export function useRaidSocket() {
   return {
     raidState,
     connectionMode,
+    lastGameResult,
     joinRaid,
     submitAnswer,
     useSkill,

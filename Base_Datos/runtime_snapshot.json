@@ -1,0 +1,374 @@
+{
+  "roomPin": "4829",
+  "bossName": "Jefe Dragón",
+  "bossHp": 6450,
+  "bossMaxHp": 10000,
+  "bossPhase": 1,
+  "shieldPhaseProgress": 40,
+  "classHp": 8800,
+  "classMaxHp": 10000,
+  "connectedCount": 28,
+  "isPaused": false,
+  "isBossWeakened": false,
+  "shieldCharges": 3,
+  "maxShieldCharges": 5,
+  "bossAttackCountdown": 12,
+  "accuracyPercent": 74,
+  "avgResponseSec": 8.4,
+  "feed": [
+    {
+      "id": "f-1",
+      "name": "Sofía",
+      "text": "encadenó un combo ×5",
+      "icon": "sword",
+      "color": "rose",
+      "timestamp": "ahora"
+    },
+    {
+      "id": "f-2",
+      "name": "Diego",
+      "text": "envió una pista sanadora",
+      "icon": "heart",
+      "color": "green",
+      "timestamp": "ahora"
+    },
+    {
+      "id": "f-3",
+      "name": "Valeria",
+      "text": "levantó un reflector",
+      "icon": "shield",
+      "color": "blue",
+      "timestamp": "hace 8 s"
+    },
+    {
+      "id": "f-4",
+      "name": "Mateo",
+      "text": "causó 150 de daño",
+      "icon": "bolt",
+      "color": "amber",
+      "timestamp": "hace 14 s"
+    }
+  ],
+  "floatingTexts": [
+    {
+      "id": "ft-1",
+      "text": "−150 PV",
+      "subtext": "Mateo",
+      "type": "damage"
+    },
+    {
+      "id": "ft-2",
+      "text": "+Escudo",
+      "subtext": "Lucía",
+      "type": "shield"
+    },
+    {
+      "id": "ft-3",
+      "text": "+200 PV",
+      "subtext": "Curación del salón",
+      "type": "heal"
+    }
+  ],
+  "students": [
+    {
+      "id": "stu-ana",
+      "name": "Ana P.",
+      "initials": "AP",
+      "role": "Sanadora",
+      "roleKey": "healer",
+      "correct": 2,
+      "total": 7,
+      "avgTimeSec": 19.2,
+      "streak": 0,
+      "status": "Requiere apoyo",
+      "statusClass": "warning",
+      "fastErrorsCount": 0,
+      "consecutiveErrors": 3,
+      "hasActiveHint": false
+    },
+    {
+      "id": "stu-carlos",
+      "name": "Carlos M.",
+      "initials": "CM",
+      "role": "Atacante",
+      "roleKey": "attacker",
+      "correct": 1,
+      "total": 7,
+      "avgTimeSec": 1.2,
+      "streak": 0,
+      "status": "Adivinando",
+      "statusClass": "danger",
+      "fastErrorsCount": 4,
+      "consecutiveErrors": 4
+    },
+    {
+      "id": "stu-sofia",
+      "name": "Sofía R.",
+      "initials": "SR",
+      "role": "Atacante",
+      "roleKey": "attacker",
+      "correct": 11,
+      "total": 11,
+      "avgTimeSec": 5.4,
+      "streak": 5,
+      "status": "Avanzada",
+      "statusClass": "advanced",
+      "fastErrorsCount": 0,
+      "consecutiveErrors": 0
+    },
+    {
+      "id": "stu-mateo",
+      "name": "Mateo L.",
+      "initials": "ML",
+      "role": "Atacante",
+      "roleKey": "attacker",
+      "correct": 8,
+      "total": 10,
+      "avgTimeSec": 6.8,
+      "streak": 3,
+      "status": "Ritmo normal",
+      "statusClass": "good",
+      "fastErrorsCount": 0,
+      "consecutiveErrors": 0
+    },
+    {
+      "id": "stu-lucia",
+      "name": "Lucía V.",
+      "initials": "LV",
+      "role": "Defensora",
+      "roleKey": "defender",
+      "correct": 7,
+      "total": 8,
+      "avgTimeSec": 9.1,
+      "streak": 2,
+      "status": "Ritmo normal",
+      "statusClass": "good",
+      "fastErrorsCount": 0,
+      "consecutiveErrors": 0
+    },
+    {
+      "id": "stu-diego",
+      "name": "Diego T.",
+      "initials": "DT",
+      "role": "Sanador",
+      "roleKey": "healer",
+      "correct": 6,
+      "total": 8,
+      "avgTimeSec": 7.5,
+      "streak": 2,
+      "status": "Ritmo normal",
+      "statusClass": "good",
+      "fastErrorsCount": 0,
+      "consecutiveErrors": 0
+    },
+    {
+      "id": "stu-valeria",
+      "name": "Valeria G.",
+      "initials": "VG",
+      "role": "Defensora",
+      "roleKey": "defender",
+      "correct": 9,
+      "total": 10,
+      "avgTimeSec": 6.2,
+      "streak": 4,
+      "status": "Avanzada",
+      "statusClass": "advanced",
+      "fastErrorsCount": 0,
+      "consecutiveErrors": 0
+    }
+  ],
+  "alerts": [
+    {
+      "id": "al-carlos",
+      "studentId": "stu-carlos",
+      "studentName": "Carlos M.",
+      "initials": "CM",
+      "type": "critical",
+      "tag": "Adivinación detectada",
+      "description": "4 fallos seguidos, cada respuesta en menos de 1,5 segundos.",
+      "cooldownSec": 4
+    },
+    {
+      "id": "al-ana",
+      "studentId": "stu-ana",
+      "studentName": "Ana P.",
+      "initials": "AP",
+      "type": "support",
+      "tag": "Requiere apoyo",
+      "description": "Dificultad con denominadores distintos · Promedio de 19,2 segundos.",
+      "hintSent": false
+    }
+  ],
+  "missedQuestions": [
+    {
+      "id": "mq-1",
+      "rank": "01",
+      "title": "Suma de fracciones heterogéneas",
+      "subtitle": "2/3 + 1/6",
+      "errorRate": 68
+    },
+    {
+      "id": "mq-2",
+      "rank": "02",
+      "title": "Simplificación de fracciones",
+      "subtitle": "12/16",
+      "errorRate": 42
+    },
+    {
+      "id": "mq-3",
+      "rank": "03",
+      "title": "Comparación de fracciones",
+      "subtitle": "3/5 frente a 5/8",
+      "errorRate": 31
+    }
+  ],
+  "lastUpdated": 1792262299424,
+  "questions": [
+    {
+      "id": "q-4",
+      "number": 4,
+      "difficulty": "Nivel medio",
+      "topic": "Forja de fracciones",
+      "prompt": "¿Cuánto es ¾ + ¼ en su forma más simple?",
+      "correctAnswer": "1",
+      "options": [
+        {
+          "shape": "triangle",
+          "value": "2/4"
+        },
+        {
+          "shape": "diamond",
+          "value": "1"
+        },
+        {
+          "shape": "circle",
+          "value": "4/8"
+        },
+        {
+          "shape": "square",
+          "value": "3/8"
+        }
+      ],
+      "hint": "Como ambas fracciones tienen denominador 4, suma los numeradores (3 + 1 = 4) y divide 4/4.",
+      "wrongOptionToEliminate": "3/8",
+      "timeLimitSec": 25
+    },
+    {
+      "id": "q-5",
+      "number": 5,
+      "difficulty": "Nivel básico",
+      "topic": "Equivalencia arcana",
+      "prompt": "¿Cuál fracción equivale exactamente a la mitad (0,5)?",
+      "correctAnswer": "2/4",
+      "options": [
+        {
+          "shape": "triangle",
+          "value": "1/4"
+        },
+        {
+          "shape": "diamond",
+          "value": "2/4"
+        },
+        {
+          "shape": "circle",
+          "value": "1/3"
+        },
+        {
+          "shape": "square",
+          "value": "3/5"
+        }
+      ],
+      "hint": "Busca la fracción donde el número de arriba (numerador) sea la mitad del número de abajo (denominador).",
+      "wrongOptionToEliminate": "1/4",
+      "timeLimitSec": 25
+    },
+    {
+      "id": "q-6",
+      "number": 6,
+      "difficulty": "Nivel medio",
+      "topic": "Suma heterogénea",
+      "prompt": "¿Cuánto es ⅔ + ⅙ simplificado?",
+      "correctAnswer": "5/6",
+      "options": [
+        {
+          "shape": "triangle",
+          "value": "3/9"
+        },
+        {
+          "shape": "diamond",
+          "value": "5/6"
+        },
+        {
+          "shape": "circle",
+          "value": "4/6"
+        },
+        {
+          "shape": "square",
+          "value": "1/2"
+        }
+      ],
+      "hint": "Convierte 2/3 a sextos multiplicando arriba y abajo por 2 (4/6), y luego súmale 1/6.",
+      "wrongOptionToEliminate": "3/9",
+      "timeLimitSec": 30
+    },
+    {
+      "id": "q-7",
+      "number": 7,
+      "difficulty": "Nivel medio",
+      "topic": "Simplificación de runas",
+      "prompt": "Al simplificar la fracción 12/16 al máximo, ¿qué obtenemos?",
+      "correctAnswer": "3/4",
+      "options": [
+        {
+          "shape": "triangle",
+          "value": "6/8"
+        },
+        {
+          "shape": "diamond",
+          "value": "3/4"
+        },
+        {
+          "shape": "circle",
+          "value": "2/3"
+        },
+        {
+          "shape": "square",
+          "value": "4/5"
+        }
+      ],
+      "hint": "Divide tanto el 12 como el 16 entre su máximo común divisor, que es 4.",
+      "wrongOptionToEliminate": "4/5",
+      "timeLimitSec": 25
+    },
+    {
+      "id": "q-8",
+      "number": 8,
+      "difficulty": "Nivel avanzado",
+      "topic": "Resta heterogénea",
+      "prompt": "Resuelve el hechizo: ¾ − ½",
+      "correctAnswer": "1/4",
+      "options": [
+        {
+          "shape": "triangle",
+          "value": "1/4"
+        },
+        {
+          "shape": "diamond",
+          "value": "2/2"
+        },
+        {
+          "shape": "circle",
+          "value": "1/2"
+        },
+        {
+          "shape": "square",
+          "value": "2/4"
+        }
+      ],
+      "hint": "Recuerda que 1/2 equivale a 2/4. Ahora resta: 3/4 menos 2/4.",
+      "wrongOptionToEliminate": "2/2",
+      "timeLimitSec": 30
+    }
+  ],
+  "telemetryHistory": []
+}

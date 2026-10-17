@@ -12,6 +12,13 @@ export function StudentPage() {
   const { raidState, joinRaid, submitAnswer, useSkill } = useRaidSocket()
 
   // Student identity & role state
+  const [studentId] = useState<string>(() => {
+    const cached = localStorage.getItem('raid_student_id')
+    if (cached) return cached
+    const generated = `stu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+    localStorage.setItem('raid_student_id', generated)
+    return generated
+  })
   const [studentName, setStudentName] = useState('Mateo L.')
   const [role, setRole] = useState<PlayerRole>('attacker')
   const [showJoinModal, setShowJoinModal] = useState(false)
@@ -20,8 +27,9 @@ export function StudentPage() {
   const [joinError, setJoinError] = useState('')
 
   // Question & gameplay state
+  const [questions, setQuestions] = useState(QUESTION_BANK)
   const [questionIndex, setQuestionIndex] = useState(0)
-  const currentQuestion = QUESTION_BANK[questionIndex % QUESTION_BANK.length]
+  const currentQuestion = questions[questionIndex % questions.length]
   const [answer, setAnswer] = useState<string | null>(null)
   const [streak, setStreak] = useState(3)
   const [skillCharges, setSkillCharges] = useState(2)
@@ -31,11 +39,22 @@ export function StudentPage() {
   const [projectileBurst, setProjectileBurst] = useState<number | null>(null)
   const questionStartRef = useRef<number>(Date.now())
 
+  useEffect(() => {
+    fetch('/api/raid/questions')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setQuestions(data)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   const activeRoleConfig = ROLE_CONFIG[role]
   const classHpPercent = Math.round((raidState.classHp / raidState.classMaxHp) * 100)
 
   const studentRecord = raidState.students.find(
-    (s) => s.name.toLowerCase() === studentName.toLowerCase() || s.id === 'stu-ana'
+    (s) => s.id === studentId || s.name.toLowerCase() === studentName.toLowerCase()
   )
   const hasHint = localHintActive || Boolean(studentRecord?.hasActiveHint)
   const hintSender = studentRecord?.hintSender || 'Diego (Sanador)'
@@ -105,7 +124,7 @@ export function StudentPage() {
     }
 
     submitAnswer({
-      studentId: 'stu-mateo',
+      studentId,
       studentName,
       role,
       questionId: currentQuestion.id,
@@ -120,7 +139,7 @@ export function StudentPage() {
     soundEngine.playUiClick()
     setAnswer(null)
     setLocalHintActive(false)
-    setQuestionIndex((prev) => (prev + 1) % QUESTION_BANK.length)
+    setQuestionIndex((prev) => (prev + 1) % questions.length)
   }
 
   const handleTriggerSkill = () => {

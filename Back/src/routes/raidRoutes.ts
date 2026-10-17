@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import type { Server as SocketIOServer } from 'socket.io'
+import { databaseRepository } from '../repositories/databaseRepository.js'
 import { raidEngineService } from '../services/raidEngineService.js'
 import type { PlayerRole, SubmitAnswerPayload } from '../types/raid.types.js'
 
@@ -21,6 +22,36 @@ export function createRaidRouter(io: SocketIOServer): Router {
 
   router.get('/raid/questions', (_req, res) => {
     res.json(raidEngineService.getQuestions())
+  })
+
+  router.get('/raid/summary', (_req, res) => {
+    const result = raidEngineService.getLastGameResult()
+    if (!result) {
+      res.status(404).json({ error: 'No hay partida finalizada actualmente' })
+      return
+    }
+    res.json(result)
+  })
+
+  router.get('/raid/history', async (_req, res) => {
+    const history = await databaseRepository.getSessionHistory()
+    res.json(history)
+  })
+
+  router.get('/raid/missed-questions', async (_req, res) => {
+    const sessionId = `ses-${raidEngineService.getState().roomPin}`
+    const dbMissed = await databaseRepository.getMissedQuestionsFromDB(sessionId)
+    if (dbMissed && dbMissed.length > 0) {
+      res.json(dbMissed)
+      return
+    }
+    // Fallback: preguntas calculadas en memoria desde telemetría local
+    res.json(raidEngineService.getState().missedQuestions)
+  })
+
+  router.get('/raid/bosses', async (_req, res) => {
+    const bosses = await databaseRepository.getAvailableBosses()
+    res.json(bosses)
   })
 
   router.get('/raid/telemetry', (_req, res) => {
@@ -50,15 +81,35 @@ export function createRaidRouter(io: SocketIOServer): Router {
 
   router.post('/raid/answer', (req, res) => {
     const payload = req.body as SubmitAnswerPayload
+    const prevHp = raidEngineService.getState().bossHp
+    const prevClassHp = raidEngineService.getState().classHp
     const nextState = raidEngineService.submitAnswer(payload)
     io.emit('boss_state_update', nextState)
+
+    if ((prevHp > 0 && nextState.bossHp <= 0) || (prevClassHp > 0 && nextState.classHp <= 0)) {
+      const result = raidEngineService.getLastGameResult()
+      if (result) {
+        io.emit('game_over', result)
+      }
+    }
+
     res.json(nextState)
   })
 
   router.post('/raid/skill', (req, res) => {
     const { studentName, role } = req.body as { studentName: string; role: PlayerRole }
+    const prevHp = raidEngineService.getState().bossHp
+    const prevClassHp = raidEngineService.getState().classHp
     const nextState = raidEngineService.useSkill(studentName || 'Alumno', role || 'attacker')
     io.emit('boss_state_update', nextState)
+
+    if ((prevHp > 0 && nextState.bossHp <= 0) || (prevClassHp > 0 && nextState.classHp <= 0)) {
+      const result = raidEngineService.getLastGameResult()
+      if (result) {
+        io.emit('game_over', result)
+      }
+    }
+
     res.json(nextState)
   })
 

@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
 import { INITIAL_RAID_STATE } from '../data/mockRaidData'
-import type { RaidState, SubmitAnswerPayload, PlayerRole } from '../types/raid.types'
+import type { RaidState, SubmitAnswerPayload, PlayerRole, GameResult } from '../types/raid.types'
 
 const STORAGE_KEY = 'raid_boss_shared_state_v1'
 const CHANNEL_NAME = 'raid_boss_sync_channel_v1'
@@ -13,6 +13,7 @@ class RaidSyncService {
   private listeners = new Set<StateListener>()
   private state: RaidState
   private isSocketConnected = false
+  private lastGameResult: GameResult | null = null
 
   constructor() {
     this.state = this.loadInitialState()
@@ -41,6 +42,9 @@ class RaidSyncService {
       this.channel.onmessage = (event) => {
         if (event.data && event.data.type === 'RAID_STATE_SYNC') {
           this.state = event.data.payload
+          this.notifyListeners()
+        } else if (event.data && event.data.type === 'GAME_OVER_SYNC') {
+          this.lastGameResult = event.data.payload
           this.notifyListeners()
         }
       }
@@ -87,6 +91,17 @@ class RaidSyncService {
       this.socket.on('game_paused', (paused: boolean) => {
         this.updateState({ ...this.state, isPaused: paused, lastUpdated: Date.now() }, false)
       })
+
+      this.socket.on('game_over', (result: GameResult) => {
+        this.lastGameResult = result
+        if (this.channel) {
+          this.channel.postMessage({
+            type: 'GAME_OVER_SYNC',
+            payload: result,
+          })
+        }
+        this.notifyListeners()
+      })
     } catch {
       this.isSocketConnected = false
     }
@@ -94,6 +109,10 @@ class RaidSyncService {
 
   public getState(): RaidState {
     return this.state
+  }
+
+  public getLastGameResult(): GameResult | null {
+    return this.lastGameResult
   }
 
   public getConnectionMode(): 'socket' | 'local-sync' {
@@ -503,6 +522,10 @@ class RaidSyncService {
   }
 
   public tickBossTimer() {
+    // Si el socket está conectado, el servidor maneja el tick vía boss_state_update.
+    // Hacer tick local causaría que el countdown avance el doble de rápido.
+    if (this.isSocketConnected) return
+
     if (this.state.isPaused || this.state.bossHp <= 0) return
 
     let nextCountdown = this.state.bossAttackCountdown - 1
@@ -550,6 +573,7 @@ class RaidSyncService {
   }
 
   public resetRaidSession() {
+    this.lastGameResult = null
     if (this.socket && this.isSocketConnected) {
       this.socket.emit('reset_raid')
     }
