@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { AmbientParticles } from '../components/common/AmbientParticles'
 import { AppButton } from '../components/common/AppButton'
 import { Icon } from '../components/common/Icon'
 import { Logo } from '../components/common/Logo'
 import { QUESTION_BANK, ROLE_CONFIG } from '../data/mockRaidData'
 import { useRaidSocket } from '../hooks/useRaidSocket'
+import { soundEngine } from '../services/soundEngine'
 import type { PlayerRole } from '../types/raid.types'
 
 export function StudentPage() {
@@ -22,29 +24,27 @@ export function StudentPage() {
   const currentQuestion = QUESTION_BANK[questionIndex % QUESTION_BANK.length]
   const [answer, setAnswer] = useState<string | null>(null)
   const [streak, setStreak] = useState(3)
-  const [skillCharges, setSkillCharges] = useState(2) // Starts at 2/3 like prototype
+  const [skillCharges, setSkillCharges] = useState(2)
   const [timeLeft, setTimeLeft] = useState(currentQuestion.timeLimitSec)
   const [localHintActive, setLocalHintActive] = useState(false)
   const [cooldownSec, setCooldownSec] = useState(0)
+  const [projectileBurst, setProjectileBurst] = useState<number | null>(null)
   const questionStartRef = useRef<number>(Date.now())
 
   const activeRoleConfig = ROLE_CONFIG[role]
   const classHpPercent = Math.round((raidState.classHp / raidState.classMaxHp) * 100)
 
-  // Check if teacher or healer sent a hint to this student or the squad
   const studentRecord = raidState.students.find(
     (s) => s.name.toLowerCase() === studentName.toLowerCase() || s.id === 'stu-ana'
   )
   const hasHint = localHintActive || Boolean(studentRecord?.hasActiveHint)
   const hintSender = studentRecord?.hintSender || 'Diego (Sanador)'
 
-  // Reset timer when question changes
   useEffect(() => {
     setTimeLeft(currentQuestion.timeLimitSec)
     questionStartRef.current = Date.now()
   }, [questionIndex, currentQuestion.timeLimitSec])
 
-  // Question countdown timer
   useEffect(() => {
     if (raidState.isPaused || answer !== null || cooldownSec > 0) return
     const timer = window.setInterval(() => {
@@ -58,7 +58,6 @@ export function StudentPage() {
     return () => window.clearInterval(timer)
   }, [raidState.isPaused, answer, cooldownSec, currentQuestion.timeLimitSec])
 
-  // Anti-guessing cooldown timer (4s freeze)
   useEffect(() => {
     if (cooldownSec <= 0) return
     const timer = window.setInterval(() => {
@@ -89,11 +88,17 @@ export function StudentPage() {
     if (isCorrect) {
       setStreak((prev) => prev + 1)
       setSkillCharges((prev) => Math.min(3, prev + 1))
+      setProjectileBurst(Date.now())
+      if (role === 'attacker') soundEngine.playAttackHit()
+      else if (role === 'defender') soundEngine.playShieldUp()
+      else soundEngine.playHealChime()
+
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(100)
       }
     } else {
       setStreak(0)
+      soundEngine.playErrorOrFreeze()
       if (isGuessing) {
         setCooldownSec(4)
       }
@@ -112,6 +117,7 @@ export function StudentPage() {
   }
 
   const handleNextQuestion = () => {
+    soundEngine.playUiClick()
     setAnswer(null)
     setLocalHintActive(false)
     setQuestionIndex((prev) => (prev + 1) % QUESTION_BANK.length)
@@ -119,6 +125,8 @@ export function StudentPage() {
 
   const handleTriggerSkill = () => {
     if (skillCharges < 3 || raidState.isPaused) return
+    soundEngine.playCriticalSkill()
+    setProjectileBurst(Date.now())
     useSkill(studentName, role)
     setSkillCharges(0)
     if (role === 'healer') {
@@ -126,7 +134,6 @@ export function StudentPage() {
     }
   }
 
-  // Keyboard shortcuts A, B, C, D
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (showJoinModal || raidState.isPaused || cooldownSec > 0) return
@@ -150,9 +157,11 @@ export function StudentPage() {
     }
     const ok = joinRaid(nameInput.trim(), role, pinInput)
     if (!ok) {
+      soundEngine.playErrorOrFreeze()
       setJoinError(`PIN incorrecto. El PIN del aula actual es ${raidState.roomPin}.`)
       return
     }
+    soundEngine.playHealChime()
     setStudentName(nameInput.trim())
     setJoinError('')
     setShowJoinModal(false)
@@ -161,8 +170,23 @@ export function StudentPage() {
   const timerPercent = Math.max(8, Math.round((timeLeft / currentQuestion.timeLimitSec) * 100))
 
   return (
-    <main className="student-screen">
+    <main className={`student-screen theme-${role}`}>
       <div className="mobile-noise" />
+      <AmbientParticles variant={role} showRunes={true} />
+
+      {/* Upward Spell Projectile Animation when answering right or using skill */}
+      {projectileBurst && (
+        <div
+          key={projectileBurst}
+          className={`spell-projectile-launch projectile-${role}`}
+          aria-hidden="true"
+        >
+          <span className="projectile-orb">
+            <Icon name={activeRoleConfig.icon} size={22} />
+          </span>
+          <i className="projectile-trail" />
+        </div>
+      )}
 
       {/* Pause Overlay when Teacher freezes screens */}
       {raidState.isPaused && (
@@ -227,8 +251,11 @@ export function StudentPage() {
                   return (
                     <AppButton
                       key={rKey}
-                      onClick={() => setRole(rKey)}
-                      className={`join-role-card ${ cfg.className } ${role === rKey ? 'selected' : ''}`}
+                      onClick={() => {
+                        soundEngine.playUiClick()
+                        setRole(rKey)
+                      }}
+                      className={`join-role-card ${cfg.className} ${role === rKey ? 'selected' : ''}`}
                     >
                       <Icon name={cfg.icon} size={20} />
                       <strong>{cfg.name}</strong>
@@ -255,6 +282,7 @@ export function StudentPage() {
         <div className="student-status">
           <AppButton
             onClick={() => {
+              soundEngine.playUiClick()
               const order: PlayerRole[] = ['attacker', 'defender', 'healer']
               const next = order[(order.indexOf(role) + 1) % order.length]
               setRole(next)
@@ -401,19 +429,27 @@ export function StudentPage() {
               <p>Escuadrón conectado · PIN {raidState.roomPin}</p>
               <h2>Equipo de incursión</h2>
             </div>
-            <AppButton className="pin-join-trigger" onClick={() => setShowJoinModal(true)}>
+            <AppButton
+              className="pin-join-trigger"
+              onClick={() => {
+                soundEngine.playUiClick()
+                setShowJoinModal(true)
+              }}
+            >
               PIN / Rol
             </AppButton>
           </div>
 
-          {/* Role quick switcher pills */}
           <div className="role-switcher-row" aria-label="Cambiar rol de prueba">
             {(['attacker', 'defender', 'healer'] as PlayerRole[]).map((rKey) => {
               const cfg = ROLE_CONFIG[rKey]
               return (
                 <AppButton
                   key={rKey}
-                  onClick={() => setRole(rKey)}
+                  onClick={() => {
+                    soundEngine.playUiClick()
+                    setRole(rKey)
+                  }}
                   className={`role-mini-pill ${cfg.className} ${role === rKey ? 'active' : ''}`}
                 >
                   <Icon name={cfg.icon} size={13} />
@@ -473,7 +509,10 @@ export function StudentPage() {
           <div className="ux-sim-controls">
             <AppButton
               className={`sim-chip ${hasHint ? 'active' : ''}`}
-              onClick={() => setLocalHintActive((prev) => !prev)}
+              onClick={() => {
+                soundEngine.playHealChime()
+                setLocalHintActive((prev) => !prev)
+              }}
               title="Simular recepción de pista de un compañero Sanador"
             >
               ✨ {hasHint ? 'Pista activa' : 'Simular pista'}

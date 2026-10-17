@@ -1,8 +1,10 @@
 import { useState, type CSSProperties } from 'react'
+import { AmbientParticles } from '../components/common/AmbientParticles'
 import { AppButton } from '../components/common/AppButton'
 import { Icon } from '../components/common/Icon'
 import { Logo } from '../components/common/Logo'
 import { useRaidSocket } from '../hooks/useRaidSocket'
+import { soundEngine } from '../services/soundEngine'
 import type { IconName } from '../types/raid.types'
 
 export function TeacherPage() {
@@ -73,6 +75,8 @@ export function TeacherPage() {
 
   return (
     <main className="teacher-screen">
+      <AmbientParticles variant="default" showRunes={false} />
+
       <header className="teacher-header">
         <div>
           <Logo />
@@ -84,21 +88,30 @@ export function TeacherPage() {
         <div className="master-actions">
           <AppButton
             className={`gm-button ${raidState.isPaused ? 'active' : ''}`}
-            onClick={togglePause}
+            onClick={() => {
+              soundEngine.playUiClick()
+              togglePause()
+            }}
           >
             <Icon name="pause" size={18} />
             {raidState.isPaused ? 'Reanudar pantallas' : 'Pausar pantallas'}
           </AppButton>
           <AppButton
             className={`gm-button weaken ${raidState.isBossWeakened ? 'active' : ''}`}
-            onClick={toggleWeakenBoss}
+            onClick={() => {
+              soundEngine.playBossRoar()
+              toggleWeakenBoss()
+            }}
           >
             <Icon name="bolt" size={18} />
             {raidState.isBossWeakened ? 'Jefe debilitado' : 'Debilitar jefe ×2'}
           </AppButton>
           <AppButton
             className="gm-button"
-            onClick={resetRaid}
+            onClick={() => {
+              soundEngine.playUiClick()
+              resetRaid()
+            }}
             title="Restaurar los datos iniciales de la demostración"
           >
             <Icon name="refresh" size={16} />
@@ -168,11 +181,12 @@ export function TeacherPage() {
                   </div>
                   <AppButton
                     className="text-action"
-                    onClick={() =>
+                    onClick={() => {
+                      soundEngine.playUiClick()
                       setSelectedStudentDetail((prev) =>
                         prev === alert.id ? null : alert.id
                       )
-                    }
+                    }}
                   >
                     {selectedStudentDetail === alert.id ? 'Ocultar' : 'Revisar'}
                   </AppButton>
@@ -189,7 +203,10 @@ export function TeacherPage() {
                   </div>
                   <AppButton
                     className={`hint-action ${alert.hintSent ? 'sent' : ''}`}
-                    onClick={() => sendHintToStudent(alert.studentId, 'Profesor')}
+                    onClick={() => {
+                      soundEngine.playHealChime()
+                      sendHintToStudent(alert.studentId, 'Profesor')
+                    }}
                   >
                     {alert.hintSent ? '✓ Pista enviada' : 'Enviar pista'}
                   </AppButton>
@@ -218,8 +235,7 @@ export function TeacherPage() {
                     <span>{mq.rank}</span>
                     <p>
                       <strong>{mq.title}</strong>
-                      <small>{mq.subtitle}</small>
-                    </p>
+                      <small>{mq.subtitle}</small></p>
                   </div>
                   <div className="bar-track">
                     <span style={{ width: `${mq.errorRate}%` }} />
@@ -292,7 +308,10 @@ export function TeacherPage() {
             </span>
             <AppButton
               className="text-action"
-              onClick={() => setShowAllStudents((prev) => !prev)}
+              onClick={() => {
+                soundEngine.playUiClick()
+                setShowAllStudents((prev) => !prev)
+              }}
             >
               {showAllStudents ? 'Ver prioritarios' : `Ver los ${raidState.connectedCount}`}
             </AppButton>

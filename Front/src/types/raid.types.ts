@@ -16,6 +16,9 @@ export type IconName =
   | 'refresh'
   | 'lock'
   | 'check'
+  | 'music'
+  | 'volume'
+  | 'mute'
 
 export type AnswerShape = 'triangle' | 'diamond' | 'circle' | 'square'
 
