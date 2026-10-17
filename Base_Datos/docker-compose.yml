@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  postgres_raid_boss:
+    image: postgres:16-alpine
+    container_name: raid_boss_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: raid_admin
+      POSTGRES_PASSWORD: raid_password_2026
+      POSTGRES_DB: raid_boss_educativo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+
+volumes:
+  postgres_data:

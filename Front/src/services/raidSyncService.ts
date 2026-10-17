@@ -61,16 +61,12 @@ class RaidSyncService {
   }
 
   private initSocket() {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL
-    if (!socketUrl) {
-      // By default run in hybrid local sync mode unless VITE_SOCKET_URL is configured
-      return
-    }
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001'
 
     try {
       this.socket = io(socketUrl, {
         autoConnect: true,
-        reconnectionAttempts: 3,
+        reconnectionAttempts: 5,
         timeout: 2000,
       })
 
@@ -554,6 +550,9 @@ class RaidSyncService {
   }
 
   public resetRaidSession() {
+    if (this.socket && this.isSocketConnected) {
+      this.socket.emit('reset_raid')
+    }
     const fresh = {
       ...INITIAL_RAID_STATE,
       lastUpdated: Date.now(),
